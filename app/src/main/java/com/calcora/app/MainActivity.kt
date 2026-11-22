@@ -75,15 +75,80 @@ fun CalcoraApp() {
 
     val voice = remember { VoiceController(context) }
     var listening by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) { onDispose { voice.stop() } }
+    var voiceMode by remember { mutableStateOf("ask") }
+    val voiceNote = remember { longArrayOf(0L, 0L) }
+    DisposableEffect(Unit) { onDispose { voice.release() } }
+
+    fun enterCalc() {
+        voiceMode = "calc"
+        screen = Screen.Calculator
+        voice.say("ক্যালকুলেটর মোড চালু। বলুন।", "Calculator mode on. Go ahead.")
+    }
+
+    fun enterNote() {
+        voiceMode = "note"
+        voiceNote[0] = 0L
+        voiceNote[1] = 0L
+        screen = Screen.Notebooks
+        voice.say("নোট খাতা চালু। যা বলবেন সব লেখা হবে।", "Notebook on. I will write everything you say.")
+    }
+
+    fun writeVoiceNote(text: String) {
+        if (voiceNote[0] == 0L) {
+            val book = store.books.firstOrNull { it.name == "ভয়েস নোট" }
+                ?: run {
+                    store.addBook("ভয়েস নোট")
+                    store.books.last()
+                }
+            voiceNote[0] = book.id
+        }
+        if (voiceNote[1] == 0L) {
+            voiceNote[1] = store.addNote(voiceNote[0])
+        }
+        val bk = store.books.firstOrNull { it.id == voiceNote[0] } ?: return
+        val nt = bk.notes.firstOrNull { it.id == voiceNote[1] }
+        if (nt == null) {
+            voiceNote[1] = 0L
+            return
+        }
+        val title = if (nt.title.isEmpty())
+            "ভয়েস " + java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        else nt.title
+        val body = if (nt.body.isEmpty()) text else nt.body + "\n" + text
+        store.saveNote(bk.id, nt.id, title, body)
+        Toast.makeText(context, "✓ $text", Toast.LENGTH_SHORT).show()
+    }
 
     fun handleVoice(text: String) {
+        if (VoiceParser.wantsStop(text)) {
+            voice.stop()
+            return
+        }
+        if (voiceMode == "ask") {
+            if (VoiceParser.wantsCalc(text)) { enterCalc(); return }
+            if (VoiceParser.wantsNote(text)) { enterNote(); return }
+            if (VoiceParser.toExpr(text) != null) {
+                voiceMode = "calc"
+            } else {
+                voice.say("স্যার, ক্যালকুলেটর মোড নাকি নোট খাতা?", "Sir, calculator mode or notebook?")
+                return
+            }
+        }
+        if (voiceMode == "note") {
+            if (VoiceParser.switchToCalc(text)) enterCalc() else writeVoiceNote(text)
+            return
+        }
+        if (VoiceParser.switchToNote(text)) { enterNote(); return }
         val expr = VoiceParser.toExpr(text)
         val v = if (expr != null) evalExpr(expr) else null
         if (expr != null && v != null) {
             history.add("$expr = ${fmt(v)}")
             screen = Screen.Calculator
             Toast.makeText(context, "$expr = ${fmt(v)}", Toast.LENGTH_LONG).show()
+            voice.say(
+                VoiceParser.spoken(expr, true) + " সমান " + VoiceParser.spoken(fmt(v), true),
+                VoiceParser.spoken(expr, false) + " equals " + VoiceParser.spoken(fmt(v), false)
+            )
             return
         }
         val target = VoiceParser.toScreen(text)
@@ -93,8 +158,12 @@ fun CalcoraApp() {
 
     fun startVoice() {
         listening = true
-        Toast.makeText(context, "শুনছি… আবার চাপলে বন্ধ", Toast.LENGTH_SHORT).show()
-        voice.start(settings.voiceLang, settings.voiceSeconds, { handleVoice(it) }, { listening = false })
+        voiceMode = "ask"
+        voice.start(
+            settings.voiceLang, settings.voiceSeconds,
+            "স্যার, ক্যালকুলেটর মোড নাকি নোট খাতা?", "Sir, calculator mode or notebook?",
+            { handleVoice(it) }, { listening = false }
+        )
     }
 
     val micPermission = androidx.activity.compose.rememberLauncherForActivityResult(

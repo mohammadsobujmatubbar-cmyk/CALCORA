@@ -178,7 +178,7 @@ fun SettingsScreen(settings: SettingsStore) {
             Text("Keep voice on for", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(15 to "15s", 30 to "30s", 60 to "1m", 120 to "2m", 300 to "5m").forEach { (sec, label) ->
+                listOf(5 to "5s", 15 to "15s", 30 to "30s", 60 to "1m", 300 to "5m").forEach { (sec, label) ->
                     SetChip(label, settings.voiceSeconds == sec) { settings.updateVoiceSeconds(sec) }
                 }
             }

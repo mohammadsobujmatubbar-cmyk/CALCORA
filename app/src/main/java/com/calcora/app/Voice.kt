@@ -8,7 +8,10 @@ import android.os.SystemClock
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
+import java.util.Locale
 
 object VoiceParser {
     private const val BN_DIGITS = "০১২৩৪৫৬৭৮৯"
@@ -61,6 +64,35 @@ object VoiceParser {
             else -> null
         }
     }
+
+    private fun any(raw: String, vararg k: String): Boolean {
+        val t = raw.lowercase()
+        return k.any { t.contains(it) }
+    }
+
+    fun wantsCalc(raw: String) = any(raw, "ক্যালকুলেটর", "calculator", "হিসাব")
+    fun wantsNote(raw: String) = any(raw, "নোট", "খাতা", "note")
+    fun switchToNote(raw: String) = any(raw, "নোট খাতা", "নোট মোড", "note mode", "notebook")
+    fun switchToCalc(raw: String) = any(raw, "ক্যালকুলেটর মোড", "calculator mode")
+    fun wantsStop(raw: String) = raw.trim().lowercase() in setOf("বন্ধ", "বন্ধ করো", "থামো", "stop")
+
+    fun spoken(s: String, bn: Boolean): String {
+        val sb = StringBuilder()
+        for (c in s) {
+            val w = when (c) {
+                '+' -> if (bn) " যোগ " else " plus "
+                '−', '-' -> if (bn) " বিয়োগ " else " minus "
+                '×' -> if (bn) " গুণ " else " times "
+                '÷' -> if (bn) " ভাগ " else " divided by "
+                '%' -> if (bn) " শতাংশ " else " percent "
+                '.' -> if (bn) " দশমিক " else " point "
+                in '0'..'9' -> if (bn) BN_DIGITS[c - '0'].toString() else c.toString()
+                else -> c.toString()
+            }
+            sb.append(w)
+        }
+        return sb.toString().replace(Regex("\\s+"), " ").trim()
+    }
 }
 
 class VoiceController(private val context: Context) {
@@ -68,14 +100,69 @@ class VoiceController(private val context: Context) {
     private val handler = Handler(Looper.getMainLooper())
     private var active = false
     private var endAt = 0L
+    private var seconds = 30
     private var lang = "bn-BD"
     private var onText: (String) -> Unit = {}
     private var onStop: () -> Unit = {}
+
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
+    private var speaking = false
+    private var speakStart = 0L
+    var speaksBangla = false
+        private set
+
+    init {
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                ttsReady = true
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+                    override fun onDone(utteranceId: String?) { finishSpeak() }
+                    override fun onError(utteranceId: String?) { finishSpeak() }
+                })
+            }
+        }
+    }
+
+    private fun applyTtsLang(wantBn: Boolean) {
+        val t = tts ?: return
+        speaksBangla = false
+        if (wantBn) {
+            for (loc in listOf(Locale("bn", "BD"), Locale("bn", "IN"))) {
+                if (t.setLanguage(loc) >= TextToSpeech.LANG_AVAILABLE) {
+                    speaksBangla = true
+                    return
+                }
+            }
+        }
+        t.setLanguage(Locale.US)
+    }
+
+    fun say(bn: String, en: String) {
+        val t = tts
+        if (!ttsReady || t == null) return
+        speaking = true
+        speakStart = SystemClock.elapsedRealtime()
+        t.speak(if (speaksBangla) bn else en, TextToSpeech.QUEUE_FLUSH, null, "calcora")
+    }
+
+    private fun finishSpeak() {
+        handler.postDelayed({
+            speaking = false
+            touch()
+        }, 350)
+    }
+
+    private fun touch() {
+        endAt = SystemClock.elapsedRealtime() + seconds * 1000L
+    }
 
     private val listener = object : RecognitionListener {
         override fun onResults(results: android.os.Bundle?) {
             val list = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             val text = list?.firstOrNull()
+            touch()
             if (!text.isNullOrBlank()) onText(text)
             handler.postDelayed({ listen() }, 300)
         }
@@ -102,7 +189,14 @@ class VoiceController(private val context: Context) {
         override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
     }
 
-    fun start(langCode: String, seconds: Int, onText: (String) -> Unit, onStop: () -> Unit) {
+    fun start(
+        langCode: String,
+        secs: Int,
+        introBn: String,
+        introEn: String,
+        onText: (String) -> Unit,
+        onStop: () -> Unit
+    ) {
         this.onText = onText
         this.onStop = onStop
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -110,16 +204,24 @@ class VoiceController(private val context: Context) {
             onStop()
             return
         }
+        seconds = secs
         lang = if (langCode == "bn") "bn-BD" else "en-US"
+        applyTtsLang(langCode == "bn")
         active = true
-        endAt = SystemClock.elapsedRealtime() + seconds * 1000L
+        touch()
         rec = SpeechRecognizer.createSpeechRecognizer(context)
         rec?.setRecognitionListener(listener)
+        say(introBn, introEn)
         listen()
     }
 
     private fun listen() {
         if (!active) return
+        if (speaking) {
+            if (SystemClock.elapsedRealtime() - speakStart > 15000) speaking = false
+            handler.postDelayed({ listen() }, 300)
+            return
+        }
         if (SystemClock.elapsedRealtime() >= endAt) {
             stop()
             return
@@ -134,9 +236,17 @@ class VoiceController(private val context: Context) {
 
     fun stop() {
         active = false
+        speaking = false
         handler.removeCallbacksAndMessages(null)
+        tts?.stop()
         rec?.destroy()
         rec = null
         onStop()
+    }
+
+    fun release() {
+        stop()
+        tts?.shutdown()
+        tts = null
     }
 }
