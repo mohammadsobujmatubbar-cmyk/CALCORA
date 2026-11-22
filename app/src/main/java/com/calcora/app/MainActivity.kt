@@ -144,16 +144,15 @@ fun CalcoraApp() {
         if (expr != null && v != null) {
             history.add("$expr = ${fmt(v)}")
             screen = Screen.Calculator
-            Toast.makeText(context, "$expr = ${fmt(v)}", Toast.LENGTH_LONG).show()
+            VoiceBus.expr = expr
+            VoiceBus.tick += 1
             voice.say(
                 VoiceParser.spoken(expr, true) + " সমান " + VoiceParser.spoken(fmt(v), true),
                 VoiceParser.spoken(expr, false) + " equals " + VoiceParser.spoken(fmt(v), false)
             )
             return
         }
-        val target = VoiceParser.toScreen(text)
-        if (target != null) screen = target
-        else Toast.makeText(context, "বুঝতে পারিনি: $text", Toast.LENGTH_SHORT).show()
+        // calculator mode: only numbers are recorded
     }
 
     fun startVoice() {
@@ -465,6 +464,14 @@ fun NavItem(screen: Screen, selected: Boolean, modifier: Modifier, onClick: () -
 fun CalculatorScreen(history: MutableList<String>) {
     var expr by remember { mutableStateOf("") }
     var fresh by remember { mutableStateOf(false) }
+
+    LaunchedEffect(VoiceBus.tick) {
+        if (VoiceBus.tick > VoiceBus.seen) {
+            VoiceBus.seen = VoiceBus.tick
+            expr = VoiceBus.expr
+            fresh = true
+        }
+    }
 
     val preview = if (expr.any { it in "+−×÷%" }) evalExpr(expr)?.let { fmt(it) } ?: "" else ""
 

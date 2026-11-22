@@ -35,7 +35,10 @@ object VoiceParser {
         "দশমিক" to ".", "point" to ".", "dot" to "."
     )
 
-    fun toExpr(raw: String): String? {
+    fun toExpr(raw: String): String? = VoiceNum.toExpr(raw)
+
+    @Suppress("unused")
+    fun oldToExpr(raw: String): String? {
         var t = raw.lowercase()
         for ((i, c) in BN_DIGITS.withIndex()) t = t.replace(c, '0' + i)
         t = t.replace(Regex("(?<=\\d),(?=\\d{3})"), "")
