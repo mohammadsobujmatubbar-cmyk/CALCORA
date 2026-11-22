@@ -46,7 +46,7 @@ enum class Screen(val title: String, val icon: String) {
     Handwriting("Handwriting", "✍️"),
     Vault("Secure Vault", "🔒"),
     Theme("Theme", "🎨"),
-    More("More", "⋯")
+    More("Settings", "⚙️")
 }
 
 private val Cyan = Color(0xFF00E5FF)
@@ -71,6 +71,7 @@ fun CalcoraApp() {
     LaunchedEffect(history.size) { saveHistory(context, history) }
     val store = remember { NotebookStore(context) }
     val hw = remember { HwStore(context) }
+    val settings = remember { SettingsStore(context) }
 
     BackHandler(enabled = screen != Screen.Home) { screen = Screen.Home }
 
@@ -91,6 +92,7 @@ fun CalcoraApp() {
                     Screen.History -> HistoryScreen(history)
                     Screen.Notebooks -> NotebooksScreen(store)
                     Screen.Handwriting -> HandwritingScreen(hw)
+                    Screen.More -> SettingsScreen(settings)
                     else -> PlaceholderScreen(screen)
                 }
             }
