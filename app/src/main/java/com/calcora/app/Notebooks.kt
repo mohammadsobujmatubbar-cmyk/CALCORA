@@ -21,6 +21,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.TextFieldValue
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -253,8 +256,15 @@ fun NoteList(store: NotebookStore, book: Notebook, onBack: () -> Unit, onOpen: (
 
 @Composable
 fun NoteEditor(store: NotebookStore, bookId: Long, note: Note, onBack: () -> Unit) {
-    var title by remember(note.id) { mutableStateOf(note.title) }
-    var body by remember(note.id) { mutableStateOf(note.body) }
+    var title by remember(note.id) { mutableStateOf(TextFieldValue(note.title)) }
+    var body by remember(note.id) { mutableStateOf(TextFieldValue(note.body)) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(note.id) {
+        try {
+            focus.requestFocus()
+        } catch (e: Exception) {
+        }
+    }
     Column(Modifier.fillMaxSize().imePadding().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             NbBack(onBack)
@@ -262,27 +272,27 @@ fun NoteEditor(store: NotebookStore, bookId: Long, note: Note, onBack: () -> Uni
         }
         Spacer(Modifier.height(8.dp))
         Box(Modifier.fillMaxWidth()) {
-            if (title.isEmpty()) Text("Title", color = Color(0x80FFFFFF), fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            if (title.text.isEmpty()) Text("Title", color = Color(0x80FFFFFF), fontSize = 22.sp, fontWeight = FontWeight.Bold)
             BasicTextField(
                 value = title,
                 onValueChange = {
                     title = it
-                    store.saveNote(bookId, note.id, title, body)
+                    store.saveNote(bookId, note.id, it.text, body.text)
                 },
                 singleLine = true,
                 textStyle = TextStyle(color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold),
                 cursorBrush = SolidColor(NbCyan),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().focusRequester(focus)
             )
         }
         Spacer(Modifier.height(10.dp))
         Box(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
-            if (body.isEmpty()) Text("Write here…", color = Color(0x80FFFFFF), fontSize = 17.sp)
+            if (body.text.isEmpty()) Text("Write here…", color = Color(0x80FFFFFF), fontSize = 17.sp)
             BasicTextField(
                 value = body,
                 onValueChange = {
                     body = it
-                    store.saveNote(bookId, note.id, title, body)
+                    store.saveNote(bookId, note.id, title.text, it.text)
                 },
                 textStyle = TextStyle(color = Color.White, fontSize = 17.sp),
                 cursorBrush = SolidColor(NbCyan),
