@@ -69,6 +69,7 @@ fun CalcoraApp() {
     val context = LocalContext.current
     val history = remember { mutableStateListOf<String>().apply { addAll(loadHistory(context)) } }
     LaunchedEffect(history.size) { saveHistory(context, history) }
+    val store = remember { NotebookStore(context) }
 
     BackHandler(enabled = screen != Screen.Home) { screen = Screen.Home }
 
@@ -84,9 +85,10 @@ fun CalcoraApp() {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (screen) {
-                    Screen.Home -> HomeScreen(history) { screen = it }
+                    Screen.Home -> HomeScreen(history, store) { screen = it }
                     Screen.Calculator -> CalculatorScreen(history)
                     Screen.History -> HistoryScreen(history)
+                    Screen.Notebooks -> NotebooksScreen(store)
                     else -> PlaceholderScreen(screen)
                 }
             }
@@ -104,7 +106,7 @@ fun CalcoraApp() {
 // ---------------------------------------------------------------- Home
 
 @Composable
-fun HomeScreen(history: List<String>, go: (Screen) -> Unit) {
+fun HomeScreen(history: List<String>, store: NotebookStore, go: (Screen) -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
@@ -201,9 +203,9 @@ fun HomeScreen(history: List<String>, go: (Screen) -> Unit) {
                 }
             }
             InfoCard("🔖", "My Notebooks", Modifier.weight(1f).fillMaxHeight()) {
-                NotebookRow("📓", "Personal Notes", "3 notes")
-                NotebookRow("📗", "Study Guide", "5 notes")
-                NotebookRow("📙", "Work Planner", "2 notes")
+                if (store.books.isEmpty()) { Text("No notebooks yet", color = Color(0xB3FFFFFF), fontSize = 12.sp) } else { store.books.take(3).forEach { NotebookRow("📓", it.name, "${it.notes.size} notes") } }
+                
+                
             }
         }
 
