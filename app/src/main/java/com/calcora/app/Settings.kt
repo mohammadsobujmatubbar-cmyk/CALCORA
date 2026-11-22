@@ -35,12 +35,12 @@ class SettingsStore(context: Context) {
     var voiceSeconds by mutableStateOf(prefs.getInt("voice_seconds", 30))
         private set
 
-    fun setVoiceLang(v: String) {
+    fun updateVoiceLang(v: String) {
         voiceLang = v
         prefs.edit().putString("voice_lang", v).apply()
     }
 
-    fun setVoiceSeconds(v: Int) {
+    fun updateVoiceSeconds(v: Int) {
         voiceSeconds = v
         prefs.edit().putInt("voice_seconds", v).apply()
     }
@@ -171,15 +171,15 @@ fun SettingsScreen(settings: SettingsStore) {
             Text("Voice language", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SetChip("বাংলা", settings.voiceLang == "bn") { settings.setVoiceLang("bn") }
-                SetChip("English", settings.voiceLang == "en") { settings.setVoiceLang("en") }
+                SetChip("বাংলা", settings.voiceLang == "bn") { settings.updateVoiceLang("bn") }
+                SetChip("English", settings.voiceLang == "en") { settings.updateVoiceLang("en") }
             }
             Spacer(Modifier.height(12.dp))
             Text("Keep voice on for", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(15 to "15s", 30 to "30s", 60 to "1m", 120 to "2m", 300 to "5m").forEach { (sec, label) ->
-                    SetChip(label, settings.voiceSeconds == sec) { settings.setVoiceSeconds(sec) }
+                    SetChip(label, settings.voiceSeconds == sec) { settings.updateVoiceSeconds(sec) }
                 }
             }
         }
