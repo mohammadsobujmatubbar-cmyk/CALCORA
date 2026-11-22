@@ -203,6 +203,7 @@ fun CalcoraApp() {
                     Screen.Notebooks -> NotebooksScreen(store)
                     Screen.Handwriting -> HandwritingScreen(hw)
                     Screen.More -> SettingsScreen(settings)
+                    Screen.Vault -> VaultScreen()
                     else -> PlaceholderScreen(screen)
                 }
             }
