@@ -1,5 +1,6 @@
 package com.calcora.app
 
+import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -65,8 +66,9 @@ fun Modifier.glass(
 @Composable
 fun CalcoraApp() {
     var screen by remember { mutableStateOf(Screen.Home) }
-    val history = remember { mutableStateListOf<String>() }
     val context = LocalContext.current
+    val history = remember { mutableStateListOf<String>().apply { addAll(loadHistory(context)) } }
+    LaunchedEffect(history.size) { saveHistory(context, history) }
 
     BackHandler(enabled = screen != Screen.Home) { screen = Screen.Home }
 
@@ -466,6 +468,21 @@ fun CalcKey(label: String, modifier: Modifier, accent: Boolean, onClick: () -> U
 }
 
 // ---------------------------------------------------------------- History / placeholders
+
+private const val PREFS = "calcora_prefs"
+private const val KEY_HISTORY = "history"
+
+fun loadHistory(context: Context): List<String> {
+    val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_HISTORY, "") ?: ""
+    return if (raw.isEmpty()) emptyList() else raw.split("\n")
+}
+
+fun saveHistory(context: Context, history: List<String>) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putString(KEY_HISTORY, history.takeLast(200).joinToString("\n"))
+        .apply()
+}
 
 @Composable
 fun HistoryScreen(history: List<String>) {
