@@ -5,6 +5,20 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        create("calcora") {
+            storeFile = file("calcora.jks")
+            storePassword = "calcora123"
+            keyAlias = "calcora"
+            keyPassword = "calcora123"
+        }
+    }
+    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("calcora")
+        }
+    }
+
     namespace = "com.calcora.app"
     compileSdk = 35
 
