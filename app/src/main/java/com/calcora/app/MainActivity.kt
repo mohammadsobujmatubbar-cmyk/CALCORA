@@ -70,6 +70,7 @@ fun CalcoraApp() {
     val history = remember { mutableStateListOf<String>().apply { addAll(loadHistory(context)) } }
     LaunchedEffect(history.size) { saveHistory(context, history) }
     val store = remember { NotebookStore(context) }
+    val hw = remember { HwStore(context) }
 
     BackHandler(enabled = screen != Screen.Home) { screen = Screen.Home }
 
@@ -89,6 +90,7 @@ fun CalcoraApp() {
                     Screen.Calculator -> CalculatorScreen(history)
                     Screen.History -> HistoryScreen(history)
                     Screen.Notebooks -> NotebooksScreen(store)
+                    Screen.Handwriting -> HandwritingScreen(hw)
                     else -> PlaceholderScreen(screen)
                 }
             }
